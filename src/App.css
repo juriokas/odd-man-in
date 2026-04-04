@@ -45,6 +45,10 @@
   max-width: 560px;
 }
 
+.section-session {
+  max-width: 1180px;
+}
+
 .section-header,
 .toolbar,
 .field-row {
@@ -210,6 +214,8 @@ input {
 }
 
 .pair-list {
+  width: 100%;
+  max-width: 720px;
   padding: 20px;
   border: 1px solid #ddd;
   border-radius: 8px;
@@ -218,9 +224,10 @@ input {
 
 .session-layout {
   display: grid;
-  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(340px, 420px) minmax(0, 720px);
+  gap: 20px;
   align-items: start;
+  justify-content: center;
 }
 
 .scoreboard {
@@ -232,10 +239,14 @@ input {
   top: 24px;
 }
 
+.scoreboard .stack-tight {
+  gap: 8px;
+}
+
 .score-header,
 .score-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(64px, max-content) minmax(96px, max-content);
+  grid-template-columns: minmax(0, 1.6fr) minmax(56px, max-content) minmax(84px, max-content);
   align-items: center;
 }
 
@@ -245,7 +256,7 @@ input {
   font-size: 0.8rem;
   font-weight: 600;
   text-transform: uppercase;
-  column-gap: 28px;
+  column-gap: 18px;
 }
 
 .score-row {
@@ -253,7 +264,7 @@ input {
   border: 1px solid #ddd;
   border-radius: 8px;
   background: #fafafa;
-  column-gap: 28px;
+  column-gap: 18px;
 }
 
 .score-column {
