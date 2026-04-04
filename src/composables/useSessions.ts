@@ -485,7 +485,7 @@ export function useSessions() {
   }
 
   function hasPlayerNameError(index: number) {
-    return showPlayerNameErrors.value && draftPlayers.value[index].trim().length === 0
+    return showPlayerNameErrors.value && (draftPlayers.value[index] ?? '').trim().length === 0
   }
 
   function removeSession(sessionId: number) {

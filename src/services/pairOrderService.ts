@@ -2,7 +2,7 @@ import type { PairDefinition, Session } from '../types/session'
 import { buildPairDefinitionMap, buildPairIds, syncSessionPairPointers } from '../utils/sessionPairs'
 
 function randomItem<T>(items: T[]) {
-  return items[Math.floor(Math.random() * items.length)]
+  return items[Math.floor(Math.random() * items.length)] ?? null
 }
 
 function randomWordNumber() {
@@ -27,7 +27,13 @@ function getRoundsSinceParticipation(
   playerId: number,
 ) {
   for (let reverseIndex = playedPairIds.length - 1; reverseIndex >= 0; reverseIndex -= 1) {
-    const pair = pairMap[playedPairIds[reverseIndex]]
+    const pairId = playedPairIds[reverseIndex]
+
+    if (!pairId) {
+      continue
+    }
+
+    const pair = pairMap[pairId]
 
     if (pair !== undefined && (pair.explainerId === playerId || pair.listenerId === playerId)) {
       return playedPairIds.length - 1 - reverseIndex
@@ -43,7 +49,13 @@ function getLastRoleForPlayer(
   playerId: number,
 ) {
   for (let reverseIndex = playedPairIds.length - 1; reverseIndex >= 0; reverseIndex -= 1) {
-    const pair = pairMap[playedPairIds[reverseIndex]]
+    const pairId = playedPairIds[reverseIndex]
+
+    if (!pairId) {
+      continue
+    }
+
+    const pair = pairMap[pairId]
 
     if (!pair) {
       continue

@@ -1,5 +1,15 @@
 import type { PairDefinition, Player, Session } from '../types/session'
 
+function parsePairId(pairId: string) {
+  const [explainerIndex, listenerIndex] = pairId.split('-').map(Number)
+
+  if (explainerIndex === undefined || listenerIndex === undefined) {
+    return null
+  }
+
+  return { explainerIndex, listenerIndex }
+}
+
 export function pairIdFor(
   explainerIndex: number,
   listenerIndex: number,
@@ -27,17 +37,29 @@ export function buildPairIds(playerCount: number, repeatsPerPair = 1) {
 }
 
 export function buildPairDefinitions(players: Player[], repeatsPerPair = 1): PairDefinition[] {
-  return buildPairIds(players.length, repeatsPerPair).map((pairId) => {
-    const [explainerIndex, listenerIndex] = pairId.split('-').map(Number)
+  return buildPairIds(players.length, repeatsPerPair).flatMap((pairId) => {
+    const parsedPair = parsePairId(pairId)
+
+    if (!parsedPair) {
+      return []
+    }
+
+    const { explainerIndex, listenerIndex } = parsedPair
+    const explainer = players[explainerIndex]
+    const listener = players[listenerIndex]
+
+    if (!explainer || !listener) {
+      return []
+    }
 
     return {
       id: pairId,
       explainerIndex,
-      explainerId: players[explainerIndex].id,
-      explainerName: players[explainerIndex].name,
+      explainerId: explainer.id,
+      explainerName: explainer.name,
       listenerIndex,
-      listenerId: players[listenerIndex].id,
-      listenerName: players[listenerIndex].name,
+      listenerId: listener.id,
+      listenerName: listener.name,
     }
   })
 }
@@ -57,7 +79,15 @@ export function syncSessionPairPointers(session: Session) {
     return
   }
 
-  const [explainerIndex, listenerIndex] = currentPairId.split('-').map(Number)
+  const parsedPair = parsePairId(currentPairId)
+
+  if (!parsedPair) {
+    session.explainerIndex = 0
+    session.listenerIndex = 1
+    return
+  }
+
+  const { explainerIndex, listenerIndex } = parsedPair
   session.explainerIndex = explainerIndex
   session.listenerIndex = listenerIndex
 }
