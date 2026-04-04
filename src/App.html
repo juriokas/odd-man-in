@@ -1,0 +1,327 @@
+<main :class="['app', { 'app-blink': isTimerDoneBlinking }]">
+  <template v-if="page === 'home'">
+    <section class="section">
+      <div class="section-header home-action">
+        <button class="button button-primary home-action-button" type="button" @click="openNewSession">
+          New session
+        </button>
+      </div>
+
+      <div class="stack">
+        <h2 class="section-subtitle">Previous sessions</h2>
+
+        <div v-if="sessions.length === 0" class="empty-state">
+          <p>No sessions yet.</p>
+          <p>Start a new one to begin tracking order.</p>
+        </div>
+
+        <div
+          v-for="session in sessions"
+          :key="session.id"
+          class="list-item session-row"
+        >
+          <button class="session-button" type="button" @click="openSession(session.id)">
+            <div>
+              <strong>{{ session.players.map((player) => player.name).join(', ') }}</strong>
+              <p class="muted">{{ formatDate(session.createdAt) }}</p>
+            </div>
+          </button>
+          <button
+            class="button button-icon"
+            type="button"
+            aria-label="Remove session"
+            @click="removeSession(session.id)"
+          >
+            x
+          </button>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <section v-else-if="page === 'new-session'" class="section section-narrow">
+    <div class="toolbar">
+      <button class="button button-icon" type="button" aria-label="Back" @click="goHome">&larr;</button>
+    </div>
+
+    <div class="stack">
+      <section class="editor-card stack">
+        <h2 class="section-subtitle">Players</h2>
+
+        <div v-for="(_, index) in draftPlayers" :key="index" class="field">
+          <div class="field-row">
+            <input
+              v-model="draftPlayers[index]"
+              :class="{ 'input-error': hasPlayerNameError(index) }"
+              type="text"
+              placeholder="Enter player name"
+            />
+            <button
+              class="button button-small button-icon"
+              type="button"
+              @click.stop.prevent="removePlayerField(index)"
+            >
+              x
+            </button>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <button class="button" type="button" @click.stop.prevent="addPlayerField">Add player</button>
+          <button
+            class="button button-primary"
+            type="button"
+            @click.stop.prevent="createSession"
+          >
+            Start session
+          </button>
+        </div>
+      </section>
+
+      <section class="settings-card stack-tight">
+        <h2 class="section-subtitle">Settings</h2>
+
+        <label class="field">
+          <span class="field-label">Timer seconds</span>
+          <input
+            v-model.number="draftSettings.timerDurationSeconds"
+            type="number"
+            min="1"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Explanations per pair</span>
+          <input
+            v-model.number="draftSettings.repeatsPerPair"
+            type="number"
+            min="1"
+          />
+        </label>
+
+        <p class="settings-note muted">Total rounds: {{ draftTotalRounds }}</p>
+
+        <label class="settings-toggle">
+          <input
+            v-model="draftSettings.dingEnabled"
+            type="checkbox"
+          />
+          <span>Ding sound enabled</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Ding volume</span>
+          <input
+            v-model.number="draftSettings.dingVolume"
+            :disabled="!draftSettings.dingEnabled"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            @change="previewDraftDingVolume"
+          />
+        </label>
+      </section>
+    </div>
+  </section>
+
+  <section v-else class="section">
+    <div class="toolbar">
+      <button class="button button-icon" type="button" aria-label="Home" @click="goHome">&larr;</button>
+      <button class="button" type="button" @click="openSettingsDialog">Settings</button>
+    </div>
+
+    <template v-if="activeSession">
+      <div class="session-layout">
+        <section class="scoreboard">
+          <div class="score-header">
+            <span class="score-column score-column-player">Player</span>
+            <span class="score-column score-column-points">Points</span>
+            <span class="score-column score-column-rounds">Rounds</span>
+          </div>
+          <div class="stack-tight">
+            <div v-for="player in leaderboard" :key="player.id" class="score-row">
+              <span class="score-name score-column score-column-player">{{ player.name }}</span>
+              <strong class="score-value score-column score-column-points">{{ player.score }}</strong>
+              <span class="score-progress score-column score-column-rounds">
+                {{ player.completedRounds }} / {{ player.totalRounds }}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section class="pair-list">
+          <div class="pair-grid">
+            <div v-if="sessionPairs.some((pair) => pair.isPast)" class="pair-tile pair-tile-collapsed">
+              {{ sessionPairs.filter((pair) => pair.isPast).length }} completed
+            </div>
+            <div
+              v-for="pair in sessionPairs"
+              :key="pair.id"
+              v-show="!pair.isPast"
+              :class="['pair-tile', { 'pair-tile-current': pair.isCurrent }]"
+            >
+              <div v-if="pair.isCurrent" class="pair-tile-header">
+                <span>{{ pair.explainerName }} &rarr; {{ pair.listenerName }}</span>
+                <div class="pair-header-meta">
+                  <span class="pair-word-number">{{ pair.wordNumber }}</span>
+                </div>
+              </div>
+              <div v-else class="pair-tile-header">
+                <span>{{ pair.explainerName }} &rarr; {{ pair.listenerName }}</span>
+                <div class="pair-header-meta">
+                  <span v-if="pair.score !== 0" class="pair-score">{{ pair.score }}</span>
+                </div>
+              </div>
+              <div v-if="pair.isCurrent" class="current-pair-actions">
+                <div class="round-score-shell">
+                  <div v-if="!isCurrentPairReadyForScoring" class="timer-shell">
+                    <div class="timer-display">
+                      <div class="round-score">
+                        {{ formattedCurrentPairCountdown }}
+                      </div>
+                    </div>
+                    <div class="timer-controls">
+                      <button
+                        v-if="currentPairCountdownMs < activeSession.settings.timerDurationSeconds * 1000"
+                        class="button timer-control-button"
+                        type="button"
+                        @click="resetCurrentPairTimer"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        :class="[
+                          'button button-primary timer-control-button',
+                          { 'timer-control-button-single': currentPairCountdownMs >= activeSession.settings.timerDurationSeconds * 1000 },
+                        ]"
+                        type="button"
+                        @click="isCurrentPairTimerRunning ? pauseCurrentPairTimer() : startCurrentPairTimer()"
+                      >
+                        {{ isCurrentPairTimerRunning ? 'Pause' : 'Start' }}
+                      </button>
+                    </div>
+                  </div>
+                  <div v-else class="score-entry">
+                    <div class="score-entry-toolbar">
+                      <button
+                        v-if="currentPairHasCommittedScore"
+                        class="button"
+                        type="button"
+                        @click="resetCurrentPairScore"
+                      >
+                        Reset round
+                      </button>
+                    </div>
+                    <input
+                      :ref="setScoreInputRef"
+                      :value="currentPairScoreInput"
+                      class="score-input"
+                      type="number"
+                      min="0"
+                      inputmode="numeric"
+                      @input="handleCurrentPairScoreInput"
+                    />
+                    <div class="score-preset-grid">
+                      <button
+                        v-for="score in scoreOptions"
+                        :key="score"
+                        class="button button-compact"
+                        type="button"
+                        @click="setCurrentPairScore(score)"
+                      >
+                        {{ score }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="nav-actions">
+                  <button class="button" type="button" :disabled="currentPairPosition <= 0" @click="previousOrder">
+                    Previous
+                  </button>
+                  <button
+                    class="button button-primary"
+                    type="button"
+                    :disabled="currentPairPosition > activeSession.pairHistory.length - 1"
+                    @click="advanceOrder"
+                  >
+                    {{ isOnLastPair ? 'Finish round' : 'Next pair' }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </template>
+
+    <div v-else class="empty-state">
+      <p>Session not found.</p>
+      <button class="button button-primary" type="button" @click="goHome">Go home</button>
+    </div>
+  </section>
+
+  <div v-if="isSettingsDialogOpen" class="modal-backdrop" @click.self="closeSettingsDialog">
+    <section class="modal">
+      <div class="toolbar">
+        <h2 class="section-subtitle">Settings</h2>
+        <button class="button button-icon" type="button" aria-label="Close settings" @click="closeSettingsDialog">
+          x
+        </button>
+      </div>
+
+      <div class="stack">
+        <label class="field">
+          <span class="field-label">Timer seconds</span>
+          <input
+            v-model.number="sessionSettingsDraft.timerDurationSeconds"
+            type="number"
+            min="1"
+          />
+        </label>
+
+        <label class="field">
+          <span class="field-label">Explanations per pair</span>
+          <input
+            v-model.number="sessionSettingsDraft.repeatsPerPair"
+            type="number"
+            min="1"
+          />
+        </label>
+
+        <p class="settings-note muted">
+          Total rounds:
+          {{ activeSession ? activeSession.players.length * (activeSession.players.length - 1) * sessionSettingsDraft.repeatsPerPair : 0 }}
+        </p>
+
+        <p class="settings-note muted">Changing explanations per pair resets played rounds for this session.</p>
+
+        <label class="settings-toggle">
+          <input
+            v-model="sessionSettingsDraft.dingEnabled"
+            type="checkbox"
+          />
+          <span>Ding sound enabled</span>
+        </label>
+
+        <label class="field">
+          <span class="field-label">Ding volume</span>
+          <input
+            v-model.number="sessionSettingsDraft.dingVolume"
+            :disabled="!sessionSettingsDraft.dingEnabled"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            @change="previewSessionDingVolume"
+          />
+        </label>
+
+        <div class="toolbar">
+          <button class="button" type="button" @click="closeSettingsDialog">Cancel</button>
+          <button class="button button-primary" type="button" @click="saveSessionSettings">Save</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
