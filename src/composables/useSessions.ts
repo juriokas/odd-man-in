@@ -58,12 +58,14 @@ export function useSessions() {
   const isTimerDoneBlinking = ref(false)
   const currentPairScoreInput = ref('')
   const scoreInputRef = ref<HTMLInputElement | null>(null)
+  const playerNameInputRefs = ref<HTMLInputElement[]>([])
   const scoreOptions = Array.from({ length: 21 }, (_, index) => index)
 
   let currentPairTimerHandle: ReturnType<typeof setInterval> | null = null
   let currentPairTimerEndsAt = 0
   let timerDoneBlinkTimeoutHandle: ReturnType<typeof setTimeout> | null = null
   let audioContext: AudioContext | null = null
+  let hasPrimedAudio = false
 
   const activeSession = computed(
     () => sessions.value.find((session) => session.id === activeSessionId.value) ?? null,
@@ -255,13 +257,26 @@ export function useSessions() {
 
   onMounted(() => {
     window.addEventListener('keydown', handleWindowKeydown)
+    window.addEventListener('pointerdown', primeAudioOnInteraction, { passive: true })
+    window.addEventListener('keydown', primeAudioOnInteraction)
   })
 
   onUnmounted(() => {
     window.removeEventListener('keydown', handleWindowKeydown)
+    window.removeEventListener('pointerdown', primeAudioOnInteraction)
+    window.removeEventListener('keydown', primeAudioOnInteraction)
     clearCurrentPairTimer()
     clearTimerDoneBlink()
   })
+
+  function primeAudioOnInteraction() {
+    if (hasPrimedAudio) {
+      return
+    }
+
+    hasPrimedAudio = true
+    void primeAudio()
+  }
 
   async function getAudioContext() {
     if (typeof window === 'undefined') {
@@ -283,6 +298,25 @@ export function useSessions() {
     }
 
     return audioContext
+  }
+
+  async function primeAudio() {
+    const context = await getAudioContext()
+
+    if (!context) {
+      return
+    }
+
+    const silentGain = context.createGain()
+    const oscillator = context.createOscillator()
+    const startAt = context.currentTime
+
+    silentGain.gain.setValueAtTime(0.0001, startAt)
+    oscillator.frequency.setValueAtTime(440, startAt)
+    oscillator.connect(silentGain)
+    silentGain.connect(context.destination)
+    oscillator.start(startAt)
+    oscillator.stop(startAt + 0.01)
   }
 
   async function playTimerDoneSound(
@@ -423,12 +457,46 @@ export function useSessions() {
     scoreInputRef.value = element instanceof HTMLInputElement ? element : null
   }
 
+  function setPlayerNameInputRef(index: number, element: Element | null) {
+    if (element instanceof HTMLInputElement) {
+      playerNameInputRefs.value[index] = element
+      return
+    }
+
+    playerNameInputRefs.value.splice(index, 1)
+  }
+
+  function focusNextPlayerField(index: number) {
+    const nextInput = playerNameInputRefs.value[index + 1]
+
+    if (!nextInput) {
+      return
+    }
+
+    nextInput.focus()
+    nextInput.select()
+  }
+
+  function handlePlayerNameFieldAdvance(index: number, event: KeyboardEvent) {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      focusNextPlayerField(index)
+      return
+    }
+
+    if (event.key === 'Tab' && !event.shiftKey && playerNameInputRefs.value[index + 1]) {
+      event.preventDefault()
+      focusNextPlayerField(index)
+    }
+  }
+
   function addPlayerField() {
     draftPlayers.value.push('')
   }
 
   function removePlayerField(index: number) {
     draftPlayers.value.splice(index, 1)
+    playerNameInputRefs.value.splice(index, 1)
   }
 
   function openNewSession() {
@@ -744,9 +812,11 @@ export function useSessions() {
     isCurrentPairReadyForScoring,
     currentPairScoreInput,
     setScoreInputRef,
+    setPlayerNameInputRef,
     scoreOptions,
     addPlayerField,
     removePlayerField,
+    handlePlayerNameFieldAdvance,
     openNewSession,
     openSession,
     goHome,

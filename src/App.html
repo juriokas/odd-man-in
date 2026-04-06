@@ -2,7 +2,11 @@
   <template v-if="page === 'home'">
     <section class="section">
       <div class="section-header home-action">
-        <button class="button button-primary home-action-button" type="button" @click="openNewSession">
+        <button
+          class="button button-primary home-action-button"
+          type="button"
+          @click="openNewSession"
+        >
           New session
         </button>
       </div>
@@ -15,11 +19,7 @@
           <p>Start a new one to begin tracking order.</p>
         </div>
 
-        <div
-          v-for="session in sessions"
-          :key="session.id"
-          class="list-item session-row"
-        >
+        <div v-for="session in sessions" :key="session.id" class="list-item session-row">
           <button class="session-button" type="button" @click="openSession(session.id)">
             <div>
               <strong>{{ session.players.map((player) => player.name).join(', ') }}</strong>
@@ -41,7 +41,9 @@
 
   <section v-else-if="page === 'new-session'" class="section section-narrow">
     <div class="toolbar">
-      <button class="button button-icon" type="button" aria-label="Back" @click="goHome">&larr;</button>
+      <button class="button button-icon" type="button" aria-label="Back" @click="goHome">
+        &larr;
+      </button>
     </div>
 
     <div class="stack">
@@ -51,10 +53,12 @@
         <div v-for="(_, index) in draftPlayers" :key="index" class="field">
           <div class="field-row">
             <input
+              :ref="(element) => setPlayerNameInputRef(index, element)"
               v-model="draftPlayers[index]"
               :class="{ 'input-error': hasPlayerNameError(index) }"
               type="text"
               placeholder="Enter player name"
+              @keydown="handlePlayerNameFieldAdvance(index, $event)"
             />
             <button
               class="button button-small button-icon"
@@ -67,12 +71,10 @@
         </div>
 
         <div class="toolbar">
-          <button class="button" type="button" @click.stop.prevent="addPlayerField">Add player</button>
-          <button
-            class="button button-primary"
-            type="button"
-            @click.stop.prevent="createSession"
-          >
+          <button class="button" type="button" @click.stop.prevent="addPlayerField">
+            Add player
+          </button>
+          <button class="button button-primary" type="button" @click.stop.prevent="createSession">
             Start session
           </button>
         </div>
@@ -83,29 +85,18 @@
 
         <label class="field">
           <span class="field-label">Timer seconds</span>
-          <input
-            v-model.number="draftSettings.timerDurationSeconds"
-            type="number"
-            min="1"
-          />
+          <input v-model.number="draftSettings.timerDurationSeconds" type="number" min="1" />
         </label>
 
         <label class="field">
           <span class="field-label">Explanations per pair</span>
-          <input
-            v-model.number="draftSettings.repeatsPerPair"
-            type="number"
-            min="1"
-          />
+          <input v-model.number="draftSettings.repeatsPerPair" type="number" min="1" />
         </label>
 
         <p class="settings-note muted">Total rounds: {{ draftTotalRounds }}</p>
 
         <label class="settings-toggle">
-          <input
-            v-model="draftSettings.dingEnabled"
-            type="checkbox"
-          />
+          <input v-model="draftSettings.dingEnabled" type="checkbox" />
           <span>Ding sound enabled</span>
         </label>
 
@@ -125,10 +116,14 @@
     </div>
   </section>
 
-  <section v-else class="section section-session">
+  <section class="section section-session" v-else>
     <div class="toolbar">
-      <button class="button button-icon" type="button" aria-label="Home" @click="goHome">&larr;</button>
-      <button class="button" type="button" @click="openSettingsDialog">Settings</button>
+      <button class="button button-icon" type="button" aria-label="Home" @click="goHome">
+        &larr;
+      </button>
+      <div class="toolbar-actions">
+        <button class="button" type="button" @click="openSettingsDialog">Settings</button>
+      </div>
     </div>
 
     <template v-if="activeSession">
@@ -142,7 +137,9 @@
           <div class="stack-tight">
             <div v-for="player in leaderboard" :key="player.id" class="score-row">
               <span class="score-name score-column score-column-player">{{ player.name }}</span>
-              <strong class="score-value score-column score-column-points">{{ player.score }}</strong>
+              <strong class="score-value score-column score-column-points"
+                >{{ player.score }}</strong
+              >
               <span class="score-progress score-column score-column-rounds">
                 {{ player.completedRounds }} / {{ player.totalRounds }}
               </span>
@@ -152,14 +149,22 @@
 
         <section class="pair-list">
           <div class="pair-grid">
-            <div v-if="sessionPairs.some((pair) => pair.isPast)" class="pair-tile pair-tile-collapsed">
+            <div
+              v-if="sessionPairs.some((pair) => pair.isPast)"
+              class="pair-tile pair-tile-collapsed"
+            >
               {{ sessionPairs.filter((pair) => pair.isPast).length }} completed
             </div>
             <div
               v-for="pair in sessionPairs"
               :key="pair.id"
               v-show="!pair.isPast"
-              :class="['pair-tile', { 'pair-tile-current': pair.isCurrent }]"
+              :class="[
+                'pair-tile',
+                {
+                  'pair-tile-current': pair.isCurrent,
+                },
+              ]"
             >
               <div v-if="pair.isCurrent" class="pair-tile-header">
                 <span>{{ pair.explainerName }} &rarr; {{ pair.listenerName }}</span>
@@ -177,9 +182,7 @@
                 <div class="round-score-shell">
                   <div v-if="!isCurrentPairReadyForScoring" class="timer-shell">
                     <div class="timer-display">
-                      <div class="round-score">
-                        {{ formattedCurrentPairCountdown }}
-                      </div>
+                      <div class="round-score">{{ formattedCurrentPairCountdown }}</div>
                     </div>
                     <div class="timer-controls">
                       <button
@@ -236,7 +239,12 @@
                   </div>
                 </div>
                 <div class="nav-actions">
-                  <button class="button" type="button" :disabled="currentPairPosition <= 0" @click="previousOrder">
+                  <button
+                    class="button"
+                    type="button"
+                    :disabled="currentPairPosition <= 0"
+                    @click="previousOrder"
+                  >
                     Previous
                   </button>
                   <button
@@ -265,7 +273,12 @@
     <section class="modal">
       <div class="toolbar">
         <h2 class="section-subtitle">Settings</h2>
-        <button class="button button-icon" type="button" aria-label="Close settings" @click="closeSettingsDialog">
+        <button
+          class="button button-icon"
+          type="button"
+          aria-label="Close settings"
+          @click="closeSettingsDialog"
+        >
           x
         </button>
       </div>
@@ -273,34 +286,25 @@
       <div class="stack">
         <label class="field">
           <span class="field-label">Timer seconds</span>
-          <input
-            v-model.number="sessionSettingsDraft.timerDurationSeconds"
-            type="number"
-            min="1"
-          />
+          <input v-model.number="sessionSettingsDraft.timerDurationSeconds" type="number" min="1" />
         </label>
 
         <label class="field">
           <span class="field-label">Explanations per pair</span>
-          <input
-            v-model.number="sessionSettingsDraft.repeatsPerPair"
-            type="number"
-            min="1"
-          />
+          <input v-model.number="sessionSettingsDraft.repeatsPerPair" type="number" min="1" />
         </label>
 
         <p class="settings-note muted">
-          Total rounds:
-          {{ activeSession ? activeSession.players.length * (activeSession.players.length - 1) * sessionSettingsDraft.repeatsPerPair : 0 }}
+          Total rounds: {{ activeSession ? activeSession.players.length *
+          (activeSession.players.length - 1) * sessionSettingsDraft.repeatsPerPair : 0 }}
         </p>
 
-        <p class="settings-note muted">Changing explanations per pair resets played rounds for this session.</p>
+        <p class="settings-note muted">
+          Changing explanations per pair resets played rounds for this session.
+        </p>
 
         <label class="settings-toggle">
-          <input
-            v-model="sessionSettingsDraft.dingEnabled"
-            type="checkbox"
-          />
+          <input v-model="sessionSettingsDraft.dingEnabled" type="checkbox" />
           <span>Ding sound enabled</span>
         </label>
 
@@ -319,7 +323,9 @@
 
         <div class="toolbar">
           <button class="button" type="button" @click="closeSettingsDialog">Cancel</button>
-          <button class="button button-primary" type="button" @click="saveSessionSettings">Save</button>
+          <button class="button button-primary" type="button" @click="saveSessionSettings">
+            Save
+          </button>
         </div>
       </div>
     </section>
