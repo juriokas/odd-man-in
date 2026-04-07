@@ -118,11 +118,19 @@
 
   <section class="section section-session" v-else>
     <div class="toolbar">
-      <button class="button button-icon" type="button" aria-label="Home" @click="goHome">
-        &larr;
+      <button class="toolbar-icon-button" type="button" aria-label="Home" @click="goHome">
+        <span class="material-symbols-outlined" aria-hidden="true">arrow_back</span>
+        <span>Back</span>
       </button>
       <div class="toolbar-actions">
-        <button class="button" type="button" @click="openSettingsDialog">Settings</button>
+        <button
+          class="toolbar-icon-button"
+          type="button"
+          aria-label="Settings"
+          @click="openSettingsDialog"
+        >
+          <span class="material-symbols-outlined" aria-hidden="true">settings</span>
+        </button>
       </div>
     </div>
 
@@ -130,12 +138,17 @@
       <div class="session-layout">
         <section class="scoreboard">
           <div class="score-header">
-            <span class="score-column score-column-player">Player</span>
+            <span class="score-column score-column-player-group">Player</span>
             <span class="score-column score-column-points">Points</span>
             <span class="score-column score-column-rounds">Rounds</span>
           </div>
           <div class="stack-tight">
-            <div v-for="player in leaderboard" :key="player.id" class="score-row">
+            <div
+              v-for="(player, index) in leaderboard"
+              :key="player.id"
+              :class="['score-row', { 'score-row-current': currentPairPlayerIds.includes(player.id) }]"
+            >
+              <span class="score-rank score-column score-column-rank">{{ index + 1 }}</span>
               <span class="score-name score-column score-column-player">{{ player.name }}</span>
               <strong class="score-value score-column score-column-points"
                 >{{ player.score }}</strong
@@ -150,12 +163,6 @@
         <section class="pair-list">
           <div class="pair-grid">
             <div
-              v-if="sessionPairs.some((pair) => pair.isPast)"
-              class="pair-tile pair-tile-collapsed"
-            >
-              {{ sessionPairs.filter((pair) => pair.isPast).length }} completed
-            </div>
-            <div
               v-for="pair in sessionPairs"
               :key="pair.id"
               v-show="!pair.isPast"
@@ -166,14 +173,20 @@
                 },
               ]"
             >
-              <div v-if="pair.isCurrent" class="pair-tile-header">
-                <span>{{ pair.explainerName }} &rarr; {{ pair.listenerName }}</span>
-                <div class="pair-header-meta">
-                  <span class="pair-word-number">{{ pair.wordNumber }}</span>
+              <div v-if="pair.isCurrent" class="pair-tile-header pair-tile-header-current">
+                <div class="pair-title">
+                  <span>{{ pair.explainerName }}</span>
+                  <div class="pair-word-number pair-word-number-header">{{ pair.wordNumber }}</div>
+                  <span class="material-symbols-outlined pair-title-arrow" aria-hidden="true">arrow_forward</span>
+                  <span>{{ pair.listenerName }}</span>
                 </div>
               </div>
               <div v-else class="pair-tile-header">
-                <span>{{ pair.explainerName }} &rarr; {{ pair.listenerName }}</span>
+                <div class="pair-title">
+                  <span>{{ pair.explainerName }}</span>
+                  <span class="material-symbols-outlined pair-title-arrow" aria-hidden="true">arrow_forward</span>
+                  <span>{{ pair.listenerName }}</span>
+                </div>
                 <div class="pair-header-meta">
                   <span v-if="pair.score !== 0" class="pair-score">{{ pair.score }}</span>
                 </div>
@@ -182,26 +195,42 @@
                 <div class="round-score-shell">
                   <div v-if="!isCurrentPairReadyForScoring" class="timer-shell">
                     <div class="timer-display">
-                      <div class="round-score">{{ formattedCurrentPairCountdown }}</div>
+                      <div class="timer-ring">
+                        <svg class="timer-ring-svg" viewBox="0 0 120 120" aria-hidden="true">
+                          <circle class="timer-ring-track" cx="60" cy="60" r="50" />
+                          <circle
+                            class="timer-ring-progress"
+                            cx="60"
+                            cy="60"
+                            r="50"
+                            :style="{ strokeDashoffset: `${314.1592653589793 * currentTimerProgress}` }"
+                          />
+                        </svg>
+                        <div class="round-score">{{ formattedCurrentPairCountdown }}</div>
+                      </div>
                     </div>
                     <div class="timer-controls">
                       <button
-                        v-if="currentPairCountdownMs < activeSession.settings.timerDurationSeconds * 1000"
-                        class="button timer-control-button"
+                        class="button button-icon timer-control-button timer-control-button-reset"
                         type="button"
+                        aria-label="Reset timer"
                         @click="resetCurrentPairTimer"
                       >
-                        Reset
+                        <span class="material-symbols-outlined timer-control-icon" aria-hidden="true">replay</span>
                       </button>
                       <button
-                        :class="[
-                          'button button-primary timer-control-button',
-                          { 'timer-control-button-single': currentPairCountdownMs >= activeSession.settings.timerDurationSeconds * 1000 },
-                        ]"
+                        class="button button-primary timer-control-button timer-control-button-main"
                         type="button"
                         @click="isCurrentPairTimerRunning ? pauseCurrentPairTimer() : startCurrentPairTimer()"
                       >
-                        {{ isCurrentPairTimerRunning ? 'Pause' : 'Start' }}
+                        <span
+                          class="timer-control-icon"
+                          aria-hidden="true"
+                        >
+                          <span v-if="isCurrentPairTimerRunning" class="material-symbols-outlined">pause</span>
+                          <span v-else class="material-symbols-outlined">play_arrow</span>
+                        </span>
+                        <span>{{ isCurrentPairTimerRunning ? 'Pause' : 'Start' }}</span>
                       </button>
                     </div>
                   </div>
@@ -250,7 +279,7 @@
                   <button
                     class="button button-primary"
                     type="button"
-                    :disabled="currentPairPosition > activeSession.pairHistory.length - 1"
+                    :disabled="isOnLastPair || currentPairPosition > activeSession.pairHistory.length - 1"
                     @click="advanceOrder"
                   >
                     {{ isOnLastPair ? 'Finish round' : 'Next pair' }}

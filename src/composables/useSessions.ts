@@ -44,7 +44,7 @@ export function useSessions() {
   const TIMER_DONE_BLINK_MS = 900
 
   const sessions = ref<Session[]>(loadSessions())
-  const page = ref<Page>('home')
+  const page = ref<Page>(sessions.value.length > 0 ? 'session' : 'home')
   const draftPlayers = ref([...DEFAULT_DRAFT_PLAYERS])
   const draftSettings = ref<SessionSettingsDraft>(cloneSettings(DEFAULT_SESSION_SETTINGS))
   const activeSessionId = ref<number | null>(sessions.value[0]?.id ?? null)
@@ -101,6 +101,17 @@ export function useSessions() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}.${tenths}`
   })
 
+  const currentTimerProgress = computed(() => {
+    const duration = currentTimerDurationMs.value
+
+    if (duration <= 0) {
+      return 0
+    }
+
+    const remaining = Math.min(Math.max(currentPairCountdownMs.value, 0), duration)
+    return (duration - remaining) / duration
+  })
+
   const pairDefinitions = computed<PairDefinition[]>(() => {
     const session = activeSession.value
 
@@ -134,6 +145,16 @@ export function useSessions() {
     }
 
     return Object.prototype.hasOwnProperty.call(session.pairScores, pairId)
+  })
+
+  const currentPairPlayerIds = computed<number[]>(() => {
+    const currentPair = sessionPairs.value.find((pair) => pair.isCurrent)
+
+    if (!currentPair) {
+      return []
+    }
+
+    return [currentPair.explainerId, currentPair.listenerId]
   })
 
   const sessionPairs = computed<SessionPair[]>(() => {
@@ -803,6 +824,8 @@ export function useSessions() {
     sessionSettingsDraft,
     isTimerDoneBlinking,
     formattedCurrentPairCountdown,
+    currentTimerProgress,
+    currentPairPlayerIds,
     currentPairHasCommittedScore,
     sessionPairs,
     playerProgress,

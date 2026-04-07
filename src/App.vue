@@ -15,6 +15,8 @@ const {
   sessionSettingsDraft,
   isTimerDoneBlinking,
   formattedCurrentPairCountdown,
+  currentTimerProgress,
+  currentPairPlayerIds,
   currentPairCountdownMs,
   currentPairHasCommittedScore,
   sessionPairs,
